@@ -1,5 +1,4 @@
 from datetime import datetime
-from sympy import EX
 from api_keys import Tokens
 from tinkoff.invest import Client, RequestError, OrderDirection, OrderType, Quotation, InstrumentIdType
 from tinkoff.invest.services import InstrumentsService, MarketDataService
@@ -70,12 +69,18 @@ def get_figi(Ticker):
 
 class Trade:
     def process_orders(order_dict,  real_positions, sandbox_mode=True):
+        print(f"connect Tinkoff: {order_dict}, {real_positions}")
         if real_positions == order_dict:
             print("next")
             return None
         current_positions = real_positions
-        available_money = get_available_money(sandbox_mode)
-        for current_ticker, current_percent in real_positions.items():
+        try:
+            print("Get available_money...")
+            available_money = get_available_money(sandbox_mode)
+            print("successfully")
+        except Exception as ex:
+            print(f"Error get_available_money: {ex}")
+        for current_ticker, current_percent in real_positions.items(): # НЕ РАБОТАЕТ ИЗ ЗА ТОГО ЧТО ЦИКЛ ИДЕТ ПО ПУСТОМУ СЛОВАРЮ
             for ticker, percent in order_dict.items():
                 print(f"Ticker: {ticker}, percent:{percent}")
                 try:

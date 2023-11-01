@@ -13,25 +13,25 @@ from telethon.tl.functions.channels import JoinChannelRequest
 
 
 
-async def start_telegram_bot():
-    API_TOKEN = Tokens.tele_bot  # Замените на свой токен, полученный от BotFather
+# async def start_telegram_bot():
+#     API_TOKEN = Tokens.tele_bot  # Замените на свой токен, полученный от BotFather
 
-    # Инициализируем бот и диспетчер
-    bot = Bot(token=API_TOKEN)
-    dp = Dispatcher(bot)
-    logging.basicConfig(level=logging.INFO)
+#     # Инициализируем бот и диспетчер
+#     bot = Bot(token=API_TOKEN)
+#     dp = Dispatcher(bot)
+#     logging.basicConfig(level=logging.INFO)
 
-    # Обработчик команды /sell
-    @dp.message_handler(commands=['sell'])
-    async def sell(message: types.Message):
-        try:
-            Trade.sell_all()
-        except Exception as ex:
-            await message.answer(f"Ошибка продажи: {ex}")
-            print((f"Ошибка продажи: {ex}"))
+#     # Обработчик команды /sell
+#     @dp.message_handler(commands=['sell'])
+#     async def sell(message: types.Message):
+#         try:
+#             Trade.sell_all()
+#         except Exception as ex:
+#             await message.answer(f"Ошибка продажи: {ex}")
+#             print((f"Ошибка продажи: {ex}"))
             
-        await message.answer("Успешно все продалось")
-        sys.exit()
+#         await message.answer("Успешно все продалось")
+#         sys.exit()
         
 
 api_id = Tokens.api_tele_id
@@ -44,10 +44,9 @@ tag = "Мои позы:"
 gpt_request = RequestGpt()
 
 # Действительные позиции на брокерском счете
-real_positions = {}
+real_positions = {"":0}
 
-async def parse_message(client, channel, tag):
-    global real_positions 
+async def parse_message(client, channel, tag, real_position):
     async for message in client.iter_messages(channel):
         if message.text and (tag in message.text):
             #text its promt for chatgpt
@@ -78,22 +77,22 @@ async def parse_message(client, channel, tag):
             time.sleep(20)
             # from tinkoff import process_orders
             #buy or sell
-            Trade.process_orders(order_dict=result, real_positions=real_positions, sandbox_mode=True)
+            Trade.process_orders(order_dict=result, real_positions=real_position, sandbox_mode=True)
             # update current positions
             real_positions = result
 
 
-async def main():
+async def start():
     # await start_telegram_bot()
     
     async with TelegramClient(phone_number, api_id, api_hash) as client:
         while True:
-            await parse_message(client, channel=channel, tag=tag)
+            await parse_message(client, channel=channel, tag=tag, real_position=real_positions)
             await asyncio.sleep(20)
 
 
 if __name__ == '__main__':
-    asyncio.run(main())
+    asyncio.run(start())
     # asyncio.gather(main(), start_telegram_bot())
 #WORK
 
