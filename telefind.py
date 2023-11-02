@@ -44,7 +44,7 @@ tag = "Мои позы:"
 gpt_request = RequestGpt()
 
 # Действительные позиции на брокерском счете
-real_positions = {"":0}
+real_positions = {"ALRS":0}
 
 async def parse_message(client, channel, tag, real_position):
     async for message in client.iter_messages(channel):

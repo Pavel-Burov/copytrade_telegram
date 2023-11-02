@@ -82,6 +82,7 @@ class Trade:
             print(f"Error get_available_money: {ex}")
         for current_ticker, current_percent in real_positions.items(): # НЕ РАБОТАЕТ ИЗ ЗА ТОГО ЧТО ЦИКЛ ИДЕТ ПО ПУСТОМУ СЛОВАРЮ
             for ticker, percent in order_dict.items():
+                percent = int(percent)
                 print(f"Ticker: {ticker}, percent:{percent}")
                 try:
                     figi, lot, price = get_figi(ticker)
