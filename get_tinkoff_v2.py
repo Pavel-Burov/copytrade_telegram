@@ -1,9 +1,12 @@
 from datetime import datetime
+from numpy import average
+
+from sympy import true
 from api_keys import Tokens
 from tinkoff.invest import Client, RequestError, OrderDirection, OrderType, Quotation, InstrumentIdType
 from tinkoff.invest.services import InstrumentsService, MarketDataService
 from pandas import DataFrame
-import math
+import math, time
 import pandas as pd
 from tinkoff.invest.services import SandboxService
 
@@ -21,13 +24,35 @@ def get_available_money(sandbox_mode=True):
     with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as cl:
         if sandbox_mode:
             sb : SandboxService = cl.sandbox
-
             r = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
-
             return r.total_amount_currencies.units
         else:
             r = cl.operations.get_portfolio(account_id=Tokens.account_main_id)
-            print(r.total_amount_currencies.units)
+            return r.total_amount_currencies.units
+
+def get_total_capital(sandbox_mode=True):
+    with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as cl:
+        if sandbox_mode:
+            sb : SandboxService = cl.sandbox
+            r = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
+            return cast_money(r.total_amount_portfolio)
+        else:
+            r = cl.operations.get_portfolio(account_id=Tokens.account_main_id)
+            return cast_money(r.total_amount_portfolio)
+
+def get_shares_data(sandbox_mode=True):
+    with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as cl:
+        if sandbox_mode:
+            sb : SandboxService = cl.sandbox
+            r = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
+            for i in r.positions:
+                if i.instrument_type == 'share':
+                    return i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)
+        else:
+            r=cl.operations.get_portfolio(account_id=Tokens.account_main_id)
+            for i in r.positions:
+                if i.instrument_type == 'share':
+                    return i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)
 
 
 def get_figi(Ticker):
@@ -54,7 +79,7 @@ def get_figi(Ticker):
         df = df[df['ticker'] == Ticker]
         if df.empty:
             print(f"Нет тикера {Ticker}")
-            return
+            return None
 
         result_lot = df['lot'].iloc[0]
         print(f"lots {result_lot}")
@@ -75,14 +100,15 @@ class Trade:
             return None
         current_positions = real_positions
         try:
-            print("Get available_money...")
-            available_money = get_available_money(sandbox_mode)
+            print("Get total capital...")
+            total_capital = get_total_capital(sandbox_mode)
+            print(f"Total capital: {total_capital}")
             print("successfully")
         except Exception as ex:
-            print(f"Error get_available_money: {ex}")
+            print(f"Error get_total_capital: {ex}")
         for current_ticker, current_percent in real_positions.items(): # НЕ РАБОТАЕТ ИЗ ЗА ТОГО ЧТО ЦИКЛ ИДЕТ ПО ПУСТОМУ СЛОВАРЮ
             for ticker, percent in order_dict.items():
-                percent = int(percent)
+                percent, current_percent = int(percent), int(current_percent)
                 print(f"Ticker: {ticker}, percent:{percent}")
                 try:
                     figi, lot, price = get_figi(ticker)
@@ -90,14 +116,14 @@ class Trade:
                 except Exception as e:
                     print("get figi Error: ", e)
                 if figi:
-                    order_quantity = int((available_money * float(percent) / 100))
-                    print(f"available money: {available_money}")
+                    order_quantity = int((total_capital * float(percent) / 100))
+                    print(f"total capital: {total_capital}")
                     print(f"Percentage of capital: {order_quantity}, type:{type(order_quantity)}")
                     number_of_lots = math.floor(order_quantity / price / lot)
 
                     print(f"lots: {number_of_lots}, order_quantity: {order_quantity}")
                     print(f"current positions: {current_positions}")
-                    current_quantity = int((available_money * float(current_percent) / 100))  # Считаем процент от доступного капитала (прошлый цикл)
+                    current_quantity = int((total_capital * float(current_percent) / 100))  # Считаем процент от доступного капитала (прошлый цикл)
 
                     if ticker in current_positions:
                         #если процент в прошлом цикле такой же как и сейчас, то скип
@@ -105,6 +131,7 @@ class Trade:
                             print(f"Повтор текущей позиции:{ticker} - {percent}")
 
                         elif current_percent > percent: #сравниваем, прошлый процент (предыдущий цикл) и процент, который мы приняли в аргументе словарем (если предыдущий процент больше текущего)
+
                             try:
                                 with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as client:
                                     if sandbox_mode:
@@ -135,79 +162,104 @@ class Trade:
                         # elif current_percent < percent (типо процент стал больше и нужно еще докупить) quantity=math.floor(((order_quantity - current_quantity) / price) / lot) //// order_quantity = 120000 - current_quantity = 100000 (на 20k еще докупит)
                         # предыдущий процент меньше текущего (докупаем)
                         elif current_percent < percent:
-                            try:
+                            if not get_available_money() < order_quantity:
+                                try:
+                                    with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as client:
+                                            if sandbox_mode:
+                                                sb: SandboxService = client.sandbox
+                                                r = sb.post_sandbox_order(
+                                                    figi=figi,
+                                                    quantity=math.floor(((order_quantity - current_quantity) / price) / lot), 
+                                                    # price=Quotation(units=1, nano=0),
+                                                    account_id=Tokens.account_sandbox_id,
+                                                    direction=OrderDirection.ORDER_DIRECTION_BUY,
+                                                    order_type=OrderType.ORDER_TYPE_MARKET
+                                                )
+                                                print(f"Заявка на покупку {math.floor(((order_quantity - current_quantity) / price))} акций {ticker} отправлена: {r}")
+                                            else:
+                                                r = client.orders.post_order(
+                                                    figi=figi,
+                                                    quantity=math.floor(((order_quantity - current_quantity) / price) / lot),
+                                                    account_id=Tokens.api_main_tinkoff,
+                                                    direction=OrderDirection.ORDER_DIRECTION_BUY,
+                                                    order_type=OrderType.ORDER_TYPE_MARKET
+                                                )
+                                                print(f"Заявка на покупку {math.floor(((order_quantity - current_quantity) / price))} акций {ticker} отправлена: {r}")
+
+                                except RequestError as e:
+                                    print(f"Ошибка при отправке заявки: {str(e)}")
+               
+                    else:
+                        try:
+                            if not get_available_money() < order_quantity:
                                 with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as client:
                                         if sandbox_mode:
                                             sb: SandboxService = client.sandbox
                                             r = sb.post_sandbox_order(
                                                 figi=figi,
-                                                quantity=math.floor(((order_quantity - current_quantity) / price) / lot), 
+                                                quantity=number_of_lots, 
                                                 # price=Quotation(units=1, nano=0),
                                                 account_id=Tokens.account_sandbox_id,
                                                 direction=OrderDirection.ORDER_DIRECTION_BUY,
                                                 order_type=OrderType.ORDER_TYPE_MARKET
                                             )
-                                            print(f"Заявка на покупку {math.floor(((order_quantity - current_quantity) / price))} акций {ticker} отправлена: {r}")
+                                            print(f"Заявка на покупку {number_of_lots*lot} акций {ticker} отправлена: {r}")
                                         else:
                                             r = client.orders.post_order(
                                                 figi=figi,
-                                                quantity=math.floor(((order_quantity - current_quantity) / price) / lot),
+                                                quantity=number_of_lots,
                                                 account_id=Tokens.api_main_tinkoff,
                                                 direction=OrderDirection.ORDER_DIRECTION_BUY,
                                                 order_type=OrderType.ORDER_TYPE_MARKET
                                             )
-                                            print(f"Заявка на покупку {math.floor(((order_quantity - current_quantity) / price))} акций {ticker} отправлена: {r}")
-
-                            except RequestError as e:
-                                print(f"Ошибка при отправке заявки: {str(e)}")
-               
-                    else:
-                        try:
-                            with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as client:
-                                    if sandbox_mode:
-                                        sb: SandboxService = client.sandbox
-                                        r = sb.post_sandbox_order(
-                                            figi=figi,
-                                            quantity=number_of_lots, 
-                                            # price=Quotation(units=1, nano=0),
-                                            account_id=Tokens.account_sandbox_id,
-                                            direction=OrderDirection.ORDER_DIRECTION_BUY,
-                                            order_type=OrderType.ORDER_TYPE_MARKET
-                                        )
-                                        print(f"Заявка на покупку {number_of_lots*lot} акций {ticker} отправлена: {r}")
-                                    else:
-                                        r = client.orders.post_order(
-                                            figi=figi,
-                                            quantity=number_of_lots,
-                                            account_id=Tokens.api_main_tinkoff,
-                                            direction=OrderDirection.ORDER_DIRECTION_BUY,
-                                            order_type=OrderType.ORDER_TYPE_MARKET
-                                        )
-                                        print(f"Заявка на покупку {number_of_lots*lot} акций {ticker} отправлена: {r}")
-
+                                            print(f"Заявка на покупку {number_of_lots*lot} акций {ticker} отправлена: {r}")
                         except RequestError as e:
                             print(f"Ошибка при отправке заявки: {str(e)}")
     
     def sell_all(sandbox_mode=True):
         with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as client:
+
                 if sandbox_mode:
                     sb: SandboxService = client.sandbox
-                    r = sb.post_sandbox_order(
-                        figi="figi",
-                        quantity=0, 
-                        # price=Quotation(units=1, nano=0),
-                        account_id=Tokens.account_sandbox_id,
-                        direction=OrderDirection.ORDER_DIRECTION_BUY,
-                        order_type=OrderType.ORDER_TYPE_MARKET
-                    )
-                    print(f"Заявка на продажу {0} акций {0} отправлена: {r}")
-                else:
-                    r = client.orders.post_order(
-                        figi="figi",
-                        quantity=0,
-                        account_id=Tokens.api_main_tinkoff,
-                        direction=OrderDirection.ORDER_DIRECTION_BUY,
-                        order_type=OrderType.ORDER_TYPE_MARKET
-                    )
-                    print(f"Заявка на продажу {0} акций {0} отправлена: {r}")
+                    re = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
 
+                    for i in re.positions:
+                        if i.instrument_type == 'share':
+
+                            print(f"Share data:{i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
+
+                            r = sb.post_sandbox_order(
+                                figi=i.figi,
+                                quantity=i.quantity.units, 
+                                # price=Quotation(units=1, nano=0),
+                                account_id=Tokens.account_sandbox_id,
+                                direction=OrderDirection.ORDER_DIRECTION_SELL,
+                                order_type=OrderType.ORDER_TYPE_MARKET
+                            )
+                            print(f"Заявка на продажу {i.quantity.units} акций {i.figi} отправлена: {r}")
+                            time.sleep(42)
+
+                else:
+                    r=client.operations.get_portfolio(account_id=Tokens.account_main_id)
+                    for i in r.positions:
+                        if i.instrument_type == 'share':
+                            print(f"Share data:{i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
+                            r = client.orders.post_order(
+                                figi=i.figi,
+                                quantity=i.quantity.units,
+                                account_id=Tokens.api_main_tinkoff,
+                                direction=OrderDirection.ORDER_DIRECTION_SELL,
+                                order_type=OrderType.ORDER_TYPE_MARKET
+                            )
+                            print(f"Заявка на продажу {i.quantity.units} акций {i.figi} отправлена: {r}")
+                            time.sleep(20)
+
+    def get_portfolio(sandbox_mode=True):
+        with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as cl:
+            if sandbox_mode:
+                sb : SandboxService() = cl.sandbox
+                account_id = Tokens.account_sandbox_id  # Замените на свой ID аккаунта песочницы
+                r = sb.get_sandbox_portfolio(account_id=account_id)
+            else:
+                r = cl.operations.get_portfolio(account_id=Tokens.account_main_id)
+            return r

@@ -1,38 +1,14 @@
-from telethon.sync import TelegramClient
-import re, asyncio, time
+import re, asyncio, time, sys
 from api_keys import Tokens
 from request_gpt import RequestGpt
 from get_tinkoff_v2 import Trade
 
 
-import logging, asyncio, sys
 from aiogram import Bot, Dispatcher, types, executor
 from telethon.sync import TelegramClient
 from telethon.errors import SessionPasswordNeededError
 from telethon.tl.functions.channels import JoinChannelRequest
 
-
-
-# async def start_telegram_bot():
-#     API_TOKEN = Tokens.tele_bot  # Замените на свой токен, полученный от BotFather
-
-#     # Инициализируем бот и диспетчер
-#     bot = Bot(token=API_TOKEN)
-#     dp = Dispatcher(bot)
-#     logging.basicConfig(level=logging.INFO)
-
-#     # Обработчик команды /sell
-#     @dp.message_handler(commands=['sell'])
-#     async def sell(message: types.Message):
-#         try:
-#             Trade.sell_all()
-#         except Exception as ex:
-#             await message.answer(f"Ошибка продажи: {ex}")
-#             print((f"Ошибка продажи: {ex}"))
-            
-#         await message.answer("Успешно все продалось")
-#         sys.exit()
-        
 
 api_id = Tokens.api_tele_id
 api_hash = Tokens.api_tele_hash
@@ -41,10 +17,9 @@ phone_number = Tokens.tele_number
 channel = "kwefqgfyuwegfyug"
 tag = "Мои позы:"
 
-gpt_request = RequestGpt()
 
 # Действительные позиции на брокерском счете
-real_positions = {"ALRS":0}
+real_positions = {"ALRS":"18", "VTBR":"50"}
 
 async def parse_message(client, channel, tag, real_position):
     async for message in client.iter_messages(channel):
@@ -79,21 +54,33 @@ async def parse_message(client, channel, tag, real_position):
             #buy or sell
             Trade.process_orders(order_dict=result, real_positions=real_position, sandbox_mode=True)
             # update current positions
-            real_positions = result
+            real_positions.update(result)
+
+
+async def sell(client):
+    async for message in client.iter_messages("me"):
+        if message.text and ("all sell" in message.text):
+            try:
+                await Trade.sell_all(sandbox_mode=True)
+            except Exception as ex:
+                print((f"Ошибка продажи: {ex}"))   
+            sys.exit()    
+
 
 
 async def start():
-    # await start_telegram_bot()
-    
     async with TelegramClient(phone_number, api_id, api_hash) as client:
         while True:
+            await sell(client)
             await parse_message(client, channel=channel, tag=tag, real_position=real_positions)
+            await Trade.get_portfolio(sandbox_mode=True)
             await asyncio.sleep(20)
 
 
 if __name__ == '__main__':
+    gpt_request = RequestGpt()
     asyncio.run(start())
-    # asyncio.gather(main(), start_telegram_bot())
+    
 #WORK
 
 
@@ -119,3 +106,8 @@ if __name__ == '__main__':
 # в поезде начинается сущий капец когда деньги докидывают на брокерский счет, текущий алгоритм там ващ офигивает (мб просто деньги не докидывать, или перед тем как закинуть продать все акции)
 
 #tinkoff api 100 запросов в минуту
+
+# Берет процент от доустпных денег а нет капиатала (100к было купил 50% 50к, и еще 50% это уже 25к т.к. 50% от 50к это 25к)
+
+
+# Скидываем свои позы и новые позы, и пусть чат джпт сам счаитает чо сколько купить
