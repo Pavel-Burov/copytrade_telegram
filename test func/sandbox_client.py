@@ -56,20 +56,16 @@ def run():
 
 
 
-def get_available_money(sandbox_mode=True):
+def get_portfolio(sandbox_mode=True):
     with Client(Tokens.api_sandbox_tinkoff if sandbox_mode else Tokens.api_main_tinkoff) as cl:
         if sandbox_mode:
             sb : SandboxService() = cl.sandbox
             account_id = Tokens.account_sandbox_id  # Замените на свой ID аккаунта песочницы
             r = sb.get_sandbox_portfolio(account_id=account_id)
-
         else:
-
-            r = cl.operations.get_portfolio(account_id='2036486835')
-
-
+            r = cl.operations.get_portfolio(account_id=Tokens.account_main_id)
         return r
 
 if __name__ == '__main__':
-    print(get_available_money())
+    print(get_portfolio)
     run()

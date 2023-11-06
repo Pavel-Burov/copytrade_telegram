@@ -3,7 +3,7 @@ from api_keys import Tokens
 from request_gpt import RequestGpt
 from get_tinkoff_v2 import Trade
 
-
+from telethon import events
 from aiogram import Bot, Dispatcher, types, executor
 from telethon.sync import TelegramClient
 from telethon.errors import SessionPasswordNeededError
@@ -14,8 +14,17 @@ api_id = Tokens.api_tele_id
 api_hash = Tokens.api_tele_hash
 phone_number = Tokens.tele_number
 
-channel = "kwefqgfyuwegfyug"
-tag = "Мои позы:"
+async def get_channel(client):
+    dialogs = await client.get_dialogs()
+    for i, dialog in enumerate(dialogs, start=1):
+        if dialog.is_channel:
+            if i == 1:
+                print(dialog.name)
+                return dialog.entity
+            
+
+
+tag = "мои позиции:"
 
 
 # Действительные позиции на брокерском счете
@@ -26,6 +35,7 @@ async def parse_message(client, channel, tag, real_position):
         if message.text and (tag in message.text):
             #text its promt for chatgpt
             text = f"Заполни формулу, следуя табуляции и строчных символов по формуле, твой ответ не должен быть больше формулы, но может быть несколько формул в каждой строке, без посторонних слов, чистый ответ, исходя из текста. Формула:Тикер Акций Компании=Процентное число. Пример:ALRS=18. Текст: {message.text}"
+            text = f"исходя из текста выведи формулу:Ticker=Buy/Sell текст: {message.text}"
             text = text.replace("\r", " ")
             text = text.replace("\n"," ")
             # message.text its message from telegram
@@ -67,13 +77,14 @@ async def sell(client):
             sys.exit()    
 
 
-
 async def start():
     async with TelegramClient(phone_number, api_id, api_hash) as client:
         while True:
-            await sell(client)
+            # await sell(client)
+            channel = await get_channel(client)
+            print("Получил канал")
             await parse_message(client, channel=channel, tag=tag, real_position=real_positions)
-            await Trade.get_portfolio(sandbox_mode=True)
+            # await Trade.get_portfolio(sandbox_mode=True)
             await asyncio.sleep(20)
 
 
@@ -111,3 +122,8 @@ if __name__ == '__main__':
 
 
 # Скидываем свои позы и новые позы, и пусть чат джпт сам счаитает чо сколько купить
+
+
+# добавить основной запускающий скрипт 
+# Добавить метод находжения закрепленного сообщения
+# обработчик новых сообщений
