@@ -5,6 +5,6 @@ class Tokens():
     api_tele_id = 20851124
     api_tele_hash = "8ed3a8116f93e2daa1ffc936a0900dd7"
     tele_number = "6288290550110"
-    account_sandbox_id = '0d7d6a8e-9de8-4065-9b98-adea5c58151d'
+    account_sandbox_id = '68597963-2fd4-48ee-9819-bf25c702678c'
     account_main_id = '2036486835'
     tele_bot = '6716671910:AAHlx0mWeLJS68bMX8EWfotbPvTtKP7qUjE'

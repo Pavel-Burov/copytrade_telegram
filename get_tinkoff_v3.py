@@ -37,11 +37,15 @@ def get_positions(sandbox_mode=True):
         if sandbox_mode:
             sb : SandboxService = cl.sandbox
             r = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
-            return r.positions
+            for i in r.positions:
+                # if i.instrument_type == 'share':
+                print(f"figi: {i.figi}, quantity: {i.quantity.units}, average_postions_price: {cast_money(i.average_position_price)}, current price: {cast_money(i.current_price)}\n")
         else:
             r = cl.operations.get_portfolio(account_id=Tokens.account_main_id)
-            return r.positions
-        
+            for i in r.positions:
+                # if i.instrument_type == 'share':
+                print(f"figi: {i.figi}, quantity: {i.quantity.units}, average_postions_price: {cast_money(i.average_position_price)}, current price: {cast_money(i.current_price)}\n")
+
 
 def get_shares_data(ticker):
     with Client(Tokens.api_main_tinkoff) as cl:
@@ -88,7 +92,8 @@ def buy(ticker, sandbox_mode=True):
                     direction=OrderDirection.ORDER_DIRECTION_BUY,
                     order_type=OrderType.ORDER_TYPE_MARKET
                 )
-                print(f"Заявка на покупку {math.floor(get_available_money(sandbox_mode=sandbox_mode) * 20 / 100 / price / lot)} акций {ticker} отправлена: {r}")
+                print(f"Заявка на покупку {math.floor(get_available_money(sandbox_mode=sandbox_mode) * 20 / 100 / price)} акций {ticker} отправлена: {r}")
+                
             else:
                 r = client.orders.post_order(
                     figi=figi,
@@ -97,7 +102,7 @@ def buy(ticker, sandbox_mode=True):
                     direction=OrderDirection.ORDER_DIRECTION_BUY,
                     order_type=OrderType.ORDER_TYPE_MARKET
                 )
-                print(f"Заявка на покупку {math.floor(get_available_money(sandbox_mode=sandbox_mode) * 20 / 100 / price / lot)} акций {ticker} отправлена: {r}")
+                print(f"Заявка на покупку {math.floor(get_available_money(sandbox_mode=sandbox_mode) * 20 / 100 / price)} акций {ticker} отправлена: {r}")
 
 
 def sell(ticker, sandbox_mode=True):
@@ -108,11 +113,11 @@ def sell(ticker, sandbox_mode=True):
                 re = sb.get_sandbox_portfolio(account_id=Tokens.account_sandbox_id)
                 for i in re.positions:
                     if i.figi == figi:
-                        print(f"Share data:{i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
+                        print(f"Share data:{i.quantity_lots.units, i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
 
                         r = sb.post_sandbox_order(
                             figi=i.figi,
-                            quantity=i.quantity.units, 
+                            quantity=i.quantity_lots.units, 
                             # price=Quotation(units=1, nano=0),
                             account_id=Tokens.account_sandbox_id,
                             direction=OrderDirection.ORDER_DIRECTION_SELL,
@@ -126,7 +131,7 @@ def sell(ticker, sandbox_mode=True):
                         print(f"Share data:{i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
                         r = client.orders.post_order(
                             figi=i.figi,
-                            quantity=i.quantity.units,
+                            quantity=i.quantity_lots.units,
                             account_id=Tokens.api_main_tinkoff,
                             direction=OrderDirection.ORDER_DIRECTION_SELL,
                             order_type=OrderType.ORDER_TYPE_MARKET
@@ -145,7 +150,7 @@ def sell_all(sandbox_mode=True):
 
                         r = sb.post_sandbox_order(
                             figi=i.figi,
-                            quantity=i.quantity.units, 
+                            quantity=i.quantity_lots.units, 
                             # price=Quotation(units=1, nano=0),
                             account_id=Tokens.account_sandbox_id,
                             direction=OrderDirection.ORDER_DIRECTION_SELL,
@@ -160,7 +165,7 @@ def sell_all(sandbox_mode=True):
                         print(f"Share data:{i.figi, i.quantity.units, cast_money(i.average_position_price), cast_money(i.current_price)}")
                         r = client.orders.post_order(
                             figi=i.figi,
-                            quantity=i.quantity.units,
+                            quantity=i.quantity_lots.units,
                             account_id=Tokens.api_main_tinkoff,
                             direction=OrderDirection.ORDER_DIRECTION_SELL,
                             order_type=OrderType.ORDER_TYPE_MARKET
@@ -170,11 +175,14 @@ def sell_all(sandbox_mode=True):
 
 class Trade:
     def process_orders(result, sandbox_mode=True):
+        # sell_all()
         for positions in result.items():
             ticker, process = positions
             if process.lower() == "buy":
                 buy(ticker=ticker, sandbox_mode=sandbox_mode)
+                get_positions()
             elif process.lower() == "sell":
                 sell(ticker=ticker, sandbox_mode=sandbox_mode)
+                get_positions()
             else:
                 print("Не понял че покупать")

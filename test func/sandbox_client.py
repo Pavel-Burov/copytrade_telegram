@@ -34,6 +34,7 @@ def run():
         # price = market_data.get_last_prices(figi=["BBG004730ZJ9"])
         # print(cast_money(price.last_prices[0].price))
 
+
         # sb.sandbox_pay_in(
         #     account_id=account_id,
         #     amount=MoneyValue(units=100000, nano=0, currency='rub')
@@ -43,10 +44,12 @@ def run():
         
         r = sb.get_sandbox_portfolio(account_id=account_id)
         for i in r.positions:
-            if i.instrument_type == 'share':
-                print(f"figi: {i.figi}, quantity: {i.quantity.units}, average_postions_price: {cast_money(i.average_position_price)}, current price: {cast_money(i.current_price)}\n")
+            # if i.instrument_type == 'share':
+            print(f"figi: {i.figi}, quantity: {i.quantity.units}, average_postions_price: {cast_money(i.average_position_price)}, current price: {cast_money(i.current_price)}\n")
             
-        sb.close_sandbox_account(account_id=account_id)
+
+
+        # sb.close_sandbox_account(account_id=account_id)
 
         # r = sb.open_sandbox_account().account_id
         # print(r)

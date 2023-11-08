@@ -3,11 +3,14 @@ from handler.chatgpt_selenium_automation import ChatGPTAutomation
 class RequestGpt:
     def __init__(self):
         # Define the path where the chrome driver is installed on your computer
-        self.chrome_driver_path = r"E:\python\Tinkoff\chatgpt_selenium_automation-master\chromedriver.exe"
+        # self.chrome_driver_path = r"E:\python\Tinkoff\chatgpt_selenium_automation-master\chromedriver.exe"
+        self.chrome_driver_path = r"E:\python\Tinkoff\AI invest\chromedriver.exe"
 
         # the sintax r'"..."' is required because of the space in "Program Files" 
         # in my chrome_path
         self.chrome_path = r'"C:\Program Files\Google\Chrome\Application\chrome.exe"'
+        # self.chrome_path = r'"E:\python\Tinkoff\chrome-win64\chrome.exe"'
+
 
         # Create an instance
         self.chatgpt = ChatGPTAutomation(self.chrome_path, self.chrome_driver_path)

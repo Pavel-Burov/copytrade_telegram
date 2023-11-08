@@ -73,19 +73,14 @@ def get_figi(Ticker):
                 })
 
         df = DataFrame(l)
-        # df.to_json()
-        # print(df.tail(1))
-    
+
         df = df[df['ticker'] == Ticker]
         if df.empty:
             print(f"Нет тикера {Ticker}")
             return None
 
         result_lot = df['lot'].iloc[0]
-        print(f"lots {result_lot}")
-        # print(df.iloc[0])
         result_figi = df['figi'].iloc[0]
-        print(result_figi, type(result_figi))
         price = market_data.get_last_prices(figi=[result_figi])
         last_price = cast_money(price.last_prices[0].price)
 

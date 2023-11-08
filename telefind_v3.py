@@ -1,7 +1,7 @@
 from telethon import TelegramClient, events
 from api_keys import Tokens
 from request_gpt import RequestGpt
-from get_tinkoff_v2 import Trade
+from get_tinkoff_v3 import Trade
 import asyncio
 
 api_id = Tokens.api_tele_id
@@ -34,7 +34,7 @@ async def main():
                 if '#сделка' in message['message']:
                     # Выводим сообщение в консоль
                     # print(f"Новое сообщение из чата {channel_id.title}: {message['message']}")
-                    prompt = (f"исходя из текста выведи формулу:company ticker=Buy or Sell, без лишних слов, твой ответ должен составлять только из формулы. Текст: {message["message"]}".replace("\r", " ")).replace("\n"," ")
+                    prompt = (("исходя из текста выведи формулу:company ticker=Buy or Sell, без лишних слов, твой ответ должен составлять только из формулы. Текст: " +  message["message"]).replace("\r", " ")).replace("\n"," ")
                     response = gpt_request.request(prompt=prompt)
                     # создание словаря
                     result = {}
@@ -51,6 +51,9 @@ async def main():
                             result[key] = value
                     print(result)
                     # Ticker=Buy or Sell
+                    Trade.process_orders(result=result, sandbox_mode=True)
+
+                    
 
 
     # Запускаем клиента
@@ -61,6 +64,11 @@ async def main():
 if __name__ == '__main__':
     gpt_request = RequestGpt()
     asyncio.run(main())
+
+
+# git add .
+# git commit -m ""
+# git push -f origin 
 
 
 # task
