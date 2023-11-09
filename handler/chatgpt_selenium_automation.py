@@ -70,15 +70,14 @@ class ChatGPTAutomation:
 
     def send_prompt_to_chatgpt(self, prompt):
         """ Sends a message to ChatGPT and waits for 20 seconds for the response """
-        time.sleep(5)
         input_box = self.driver.find_element(by=By.XPATH, value='//textarea[contains(@placeholder, "Send a message")]')
         self.driver.execute_script(f"arguments[0].value = '{prompt}';", input_box)
         self.driver.implicitly_wait(1)
-        time.sleep(5)
+        time.sleep(2)
         input_box.send_keys(Keys.RETURN)
         time.sleep(2)
         input_box.send_keys(Keys.RETURN)
-        time.sleep(5)
+        time.sleep(2)
         # self.driver.maximize_window() # For maximizing window
         # self.driver.implicitly_wait(20) # gives an implicit wait for 20 seconds
 

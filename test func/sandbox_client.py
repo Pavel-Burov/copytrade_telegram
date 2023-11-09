@@ -70,5 +70,5 @@ def get_portfolio(sandbox_mode=True):
         return r
 
 if __name__ == '__main__':
-    print(get_portfolio)
+    # print(get_portfolio())
     run()
