@@ -43,21 +43,32 @@ async def main():
             global last_message_text
             while True:
                 # Ждем одну секунду перед следующей проверкой
-                await asyncio.sleep(0.2)
+                await asyncio.sleep(2)
                 # Получаем обновленное сообщение
                 updated_message = await client.get_messages(channel_entity, ids=message.id)
                 # Проверяем, является ли результат списком сообщений
                 if isinstance(updated_message, list):
                     updated_message = updated_message[0]
+                # Если ID последнего сообщения изменился, прекращаем отслеживание
+                if updated_message.id != last_message_id:
+                    break
+
                 # Проверяем, изменился ли текст сообщения
-                if updated_message.text != last_message_text or '#сделка' in last_message_text:
-                    print(f"Сообщение изменилось или сообщение готово: {updated_message.text}")
+                # if updated_message.text != last_message_text or '#сделка' or '💎💎💎💎💎💎' in last_message_text:
+                if True:
+                    # print(f"Сообщение изменилось или содержит старт символ: {updated_message.text}")
                     last_message_text = updated_message.text
                     # Обрабатываем измененное сообщение
-                    if '#сделка' in last_message_text:
+                    # if '#сделка' or '💎💎💎💎💎💎' in last_message_text:
+                    if True:
                         # Обрабатываем сделку
-                        prompt = ("исходя из текста выведи формулу:company ticker=Buy Sell Short, без лишних слов, твой ответ должен составлять только из формулы. Текст: " + last_message_text).replace("\r", " ").replace("\n", " ")
+                        # выпиши кратвкую информацию в формате {TICKER}={buy or sell or short} без лишних символов кавычек фигунрных скобок и т.д. исходя из текста, в котором прямо сказано какую операцию проводить с акцией, но также возможно в посте не будет четкой информации о покупке или продаже акций, тогда выводи {skip}. Текст:
+                        prompt = (last_message_text).replace("\r", " ").replace("\n", " ")
                         response = gpt_request.request(prompt=prompt)
+                        # if len(response)<1:
+                        #     asyncio.sleep(0.2)
+                        #     while len(response)<6:
+                        #         response = gpt_request.request(prompt=prompt)
                         print(response)
                         # Создаем словарь для обработки заказов
                         result = {}
@@ -69,12 +80,9 @@ async def main():
                                 value = parts[1].strip()
                                 result[key] = value
                         # Обрабатываем заказы
-                        Trade.process_orders(result=result, sandbox_mode=True)
+                        Trade.process_orders(result=result, sandbox_mode=False)
                         break
 
-                # Если ID последнего сообщения изменился, прекращаем отслеживание
-                if updated_message.id != last_message_id:
-                    break
 
         # Запускаем клиент
         await client.start()
@@ -84,6 +92,8 @@ if __name__ == '__main__':
     gpt_request = RequestGpt()
     asyncio.run(main())
 
+
+#git push -u origin
 
 #task
 # stop loss price error

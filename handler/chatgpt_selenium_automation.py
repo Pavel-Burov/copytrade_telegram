@@ -70,7 +70,9 @@ class ChatGPTAutomation:
 
     def send_prompt_to_chatgpt(self, prompt):
         """ Sends a message to ChatGPT and waits for 20 seconds for the response """
-        input_box = self.driver.find_element(by=By.XPATH, value='//textarea[contains(@placeholder, "Send a message")]')
+        # input_box = self.driver.find_element(by=By.XPATH, value='//textarea[contains(@placeholder, "Send a message")]')
+        input_box = self.driver.find_element(by=By.XPATH, value="//textarea[contains(@placeholder, 'Message Stock Signal Interpreter…')]")
+
         self.driver.execute_script(f"arguments[0].value = '{prompt}';", input_box)
         self.driver.implicitly_wait(1)
         time.sleep(2)
@@ -119,8 +121,10 @@ class ChatGPTAutomation:
 
     def return_last_response(self):
         """ :return: the text of the last chatgpt response """
-
-        response_elements = self.driver.find_elements(by=By.CSS_SELECTOR, value='div.text-base')
+        time.sleep(5)
+        response_elements = self.driver.find_elements(by=By.CSS_SELECTOR, value='div.markdown.prose')
+        # response_elements = self.driver.find_elements(by=By.CLASS_NAME, value='markdown prose w-full break-words dark:prose-invert dark')
+        
         return response_elements[-1].text
 
 
