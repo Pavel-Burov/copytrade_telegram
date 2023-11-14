@@ -1,3 +1,4 @@
+from re import split
 from api_keys import Tokens
 from tinkoff.invest import *
 from tinkoff.invest.services import *
@@ -119,37 +120,25 @@ def buy(ticker, sandbox_mode):
 
         stop_loss_price =(execution_price * (1 - stop_loss_percentage))* (quantity * lot)
 
-        # Теперь используем это значение для расчета цены за одну акцию
-        """
-        execution_price_per_share = execution_price / (quantity * lot)
+        execution_price_per_share = cast_money(r.initial_security_price)
+
         print(execution_price_per_share)
+
+        # Рассчитываем стоп-лосс цену за одну акцию
 
         # Рассчитываем стоп-лосс цену за одну акцию
         stop_loss_price_per_share = execution_price_per_share * (1 - stop_loss_percentage)
 
-        print(stop_loss_price_per_share)
         # Конвертируем стоп-лосс цену за одну акцию в нужный формат
         stop_loss_price_units = int(stop_loss_price_per_share)  # Целая часть цены за одну акцию
         stop_loss_price_nano = int((stop_loss_price_per_share - stop_loss_price_units) * 1e9)  # Дробная часть цены, переведенная в нано
+
         # Округляем нано до ближайшего значения, кратного минимальному шагу цены
         min_price_increment_nano = int(df['min_inc_o'].iloc[0].nano)  # предполагаем, что это минимальный шаг цены в нано
-        stop_loss_price_nano_rounded = (stop_loss_price_nano // min_price_increment_nano) * min_price_increment_nano
+        stop_loss_price_nano_rounded = round(stop_loss_price_nano / min_price_increment_nano) * min_price_increment_nano
 
-        print(Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded))
-        """
-        execution_price_per_share = execution_price * (quantity * lot)
-        print(execution_price_per_share)
-
-        # Рассчитываем стоп-лосс цену за одну акцию
-        stop_loss_price_per_share = execution_price_per_share * (1 - stop_loss_percentage)
-
-        print(stop_loss_price_per_share)
-        # Конвертируем стоп-лосс цену за одну акцию в нужный формат
-        stop_loss_price_units = int(stop_loss_price_per_share)  # Целая часть цены за одну акцию
-        stop_loss_price_nano = int((stop_loss_price_per_share - stop_loss_price_units) * 1e9)  # Дробная часть цены, переведенная в нано
-        # Округляем нано до ближайшего значения, кратного минимальному шагу цены
-        min_price_increment_nano = int(df['min_inc_o'].iloc[0].nano)  # предполагаем, что это минимальный шаг цены в нано
-        stop_loss_price_nano_rounded = (stop_loss_price_nano // min_price_increment_nano) * min_price_increment_nano
+        # Создаем структуру Quotation для цены за одну акцию
+        stop_loss_price_quotation = Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded)
 
         print(Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded))
 
@@ -174,6 +163,8 @@ def buy(ticker, sandbox_mode):
                     print(f"Заявка на продажу {i.quantity.units} акций {i.figi} отправлена, по цене {stop_loss_price_per_share}: {r}")
 
         else:
+
+
             # создать поток, который будет считывать текущию цену, если текущая цена равна или меньше стоп цены - продовать про рыночной
             re=client.operations.get_portfolio(account_id=Tokens.account_main_id)
             for i in re.positions:
@@ -182,6 +173,7 @@ def buy(ticker, sandbox_mode):
                     r = client.stop_orders.post_stop_order(
                         figi=i.figi,
                         quantity=i.quantity_lots.units,
+                        # Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded)
                         price=Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded),
                         stop_price=Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded),
                         account_id=Tokens.account_main_id,
@@ -189,7 +181,7 @@ def buy(ticker, sandbox_mode):
                         expiration_type=StopOrderExpirationType.STOP_ORDER_EXPIRATION_TYPE_GOOD_TILL_CANCEL,
                         stop_order_type = StopOrderType.STOP_ORDER_TYPE_STOP_LOSS
                     )
-                    print(f"Заявка на стоп лосс {i.quantity.units} акций {i.figi} отправлена, по рыночной цене: {r}")
+                    print(f"Заявка на стоп лосс {i.quantity.units} акций {i.figi} отправлена, по {cast_money(Quotation(units=stop_loss_price_units, nano=stop_loss_price_nano_rounded))}: {r}")
 
         print(f"Стоп-лосс ордер установлен на цену {stop_loss_price}: {stop_loss_price_per_share/lot}")
         # except Exception as e:
@@ -251,7 +243,7 @@ def short(ticker, sandbox_mode):
                 r = client.orders.post_order(
                     figi=figi,
                     quantity=quantity,
-                    account_id=Tokens.api_main_tinkoff,
+                    account_id=Tokens.account_main_id,
                     direction=OrderDirection.ORDER_DIRECTION_SELL,
                     order_type=OrderType.ORDER_TYPE_MARKET
                 )
